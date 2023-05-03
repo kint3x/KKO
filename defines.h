@@ -6,6 +6,18 @@
 #define FILE_LD_ERR 1
 #define INVALID_WIDTH_ERR 2
 #define ERR_NOT_MATCHED 3
+#define ERR_BAD_SIZE 4
+#define ERR_WR_ERROR 5
+
+#define HEADER_SIZE_BYTES 264
+
+#define ERR_CHECK(x) do { \
+  int retval = (x); \
+  if (retval != 0) { \
+    fprintf(stderr, "Runtime error: %s returned %d at %s:%d", #x, retval, __FILE__, __LINE__); \
+    return 0; \
+  } \
+} while (0)
 
 #define HEADER_BYTE_SIZE 264
 

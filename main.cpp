@@ -24,11 +24,11 @@ int main(int argc, char** argv){
     }
 
 
-    HuffStatic huff_static = HuffStatic(args);
+    HuffStatic huff_static = HuffStatic(&args);
 
     if(args.compress_mode) huff_static.encode_input();
     if(args.decompress_mode) huff_static.decode_input();
     //huff_static.print_huff_codes();
-
+   // if(huff_static.error) cout << "ENDED WITH ERR "<< huff_static.err_code<<endl; 
     return 0;
 }

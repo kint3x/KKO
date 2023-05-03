@@ -31,12 +31,14 @@ class BitRead {
     unsigned char act_char;
 
     bool stop;
+    bool last_char;
 
     BitRead(const uint8_t *p, const uint8_t *e){
         ptr=p;
         end=e;
         bit_index=7;
         stop = false;
+        last_char=false;
         act_char=(*ptr);
     }
     

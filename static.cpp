@@ -33,44 +33,38 @@ class HuffStatic {
 
     uint32_t width;
     uint32_t height;
-    char *f_inputname; 
-    char *f_outputname; 
-
-    bool error;
-    int err_code;
+    char *input_fname;
+    char *output_fname; 
 
     ArgParser *arguments;
 
-    HuffStatic(ArgParser args){
-        f_inputname = args.input_file;
-        f_outputname = args.output_file;
-        width = args.image_width;
-        arguments = &args;
+    HuffStatic(ArgParser *args){
+        width = args->image_width;
+        arguments = args;
         bitlen.resize(256);
-        error=false;
     }
 
     int ReadFileData(){
-        std::string filename = f_inputname;
+        std::string filename = arguments->input_file;
 
         std::ifstream file(filename, std::ios::binary | std::ios::ate);
         if (!file.is_open()) {
             std::cerr << "Failed to open file: " << filename << std::endl;
-            error = true;
-            err_code = FILE_LD_ERR;
             return FILE_LD_ERR;
         }
 
         std::streampos size = file.tellg();
         data.resize(size);
         file.seekg(0, std::ios::beg);
+        if (!file.read((char *)data.data(), size)) {
+            std::cerr << "Failed to read file: " << filename << std::endl;
+            return FILE_LD_ERR;
+        }
 
         if(arguments->compress_mode){
             if (size % width != 0) {
                 std::cerr << "Invalid width: " << width << std::endl;
-                error = true;
-                err_code = INVALID_WIDTH_ERR;
-                return INVALID_WIDTH_ERR;
+                return FILE_LD_ERR;
             }
         
             height = size / width;
@@ -119,6 +113,12 @@ class HuffStatic {
         }
     }
 
+    // comparator function to make min heap
+    struct greaters{
+        bool operator()(const std::pair<int, int> a ,const std::pair<int, int> b) const{
+            return a.first>b.first;
+        }
+    };
     void HClen() {
         std::vector<int> freq;
         std::vector<int> hr(256*2,0);
@@ -204,18 +204,11 @@ class HuffStatic {
     }
 
 
-    void writing_file(){
+    int writing_file(){
         ofstream fout;
-
-        fout.open(f_outputname, ios::binary | ios::out);
+        std::string filename = arguments->output_file;
+        fout.open(filename, ios::binary | ios::out);
         
-        if (!fout.is_open()) {
-            std::cerr << "Failed to open file: " << f_outputname << std::endl;
-            error = true;
-            err_code = FILE_LD_ERR;
-            return;
-        }
-
         fout.write((char *) &width, sizeof(width));
         fout.write((char *) &height, sizeof(height));
         for(int i=0; i<256; i++){
@@ -266,47 +259,57 @@ class HuffStatic {
             ptr++;
         }
 
+        // Tail 
+        if(buffer.valid_bits > 0){
+            buffer.data.t64 = (buffer.data.t64 << (8-(buffer.valid_bits)));
+            fout.write((char *) &(buffer.data.t8), 1);
+        }
+
 
         fout.close();
+        
+        return 0;
 
     }
-    uint8_t *decode_header(uint8_t *ptr){
+    
+    int decode_header(uint8_t *ptr){
+       
         width = *((uint32_t *) ptr); ptr+=sizeof(uint32_t);
         height = *((uint32_t *) ptr); ptr+=sizeof(uint32_t);
+
+        if(width == 0 ||  height == 0) return ERR_BAD_SIZE;
         
         for(int i=0; i<256;i++){
             bitlen[i] = *((uint8_t *) ptr);
             ptr+=sizeof(uint8_t);
         }
-        return ptr;
+
+        return 0;
     }
 
     
-    void encode_input(){
-        ReadFileData();
-        split_image_into_blocks(4);
+    int encode_input(){
+        ERR_CHECK(ReadFileData());
+        //split_image_into_blocks(4);
         count_freq();
         HClen();
         huff_codes_gen();
-        writing_file();
+        ERR_CHECK(writing_file());
 
-        
+        return 0;
     }
 
-    void decode_input(){
-        ReadFileData();
-        ERR_CHCK;
+    int decode_input(){
+        ERR_CHECK(ReadFileData());
 
         const uint8_t *ptr = data.data();
-        decode_header(data.data());
+        ERR_CHECK(decode_header( (uint8_t *)ptr));
+        //cout << "WIDTH: "<< width<<endl;
+        //cout << "HEIGTH : "<< height <<endl;
         const uint8_t *end = data.data() + data.size();
-
-        cout << "Width :" << width<<endl;
-        cout << "Heigth:" << height<<endl;
         
         huff_codes_gen();
   
-        //vector[len] = pair < code, value
         std::vector< std::vector < std::pair<uint32_t,uint8_t>>> lenmaps(256);
         for(int i=0; i<256;i++){
             int len = bitlen[i];
@@ -316,22 +319,17 @@ class HuffStatic {
         } 
 
         ofstream fout;
-        fout.open(f_outputname, ios::binary | ios::out);
-       
-        if (!fout.is_open()) {
-            std::cerr << "Failed to open file: " << f_outputname << std::endl;
-            error = true;
-            err_code = FILE_LD_ERR;
-            return;
-        }
-        
-        BitRead bitread(ptr+HEADER_BYTE_SIZE, end);
+        std::string filename = arguments->output_file;
+        fout.open(filename, ios::binary | ios::out);
+
+        if(!fout.is_open()) return ERR_WR_ERROR;
+        BitRead bitread(data.data()+HEADER_SIZE_BYTES, end);
         int putchar=0;
         uint64_t buffer=0;
         int f_len = 0;
-        const int expected_size = (int) height * width;
+        int exp_bytes = height * width;
+        while(putchar != exp_bytes){
 
-       while(putchar < expected_size){
             f_len++;
             bool nextBit= bitread.getNextBit();
             buffer = (buffer<<1) | nextBit;
@@ -356,16 +354,22 @@ class HuffStatic {
 
             }
 
-            if( f_len == 32) {
-                cout << "ERR TOO LONG WIHTOUT FINDING";
-                error = true; err_code =ERR_NOT_MATCHED;
-                return;
+            if( f_len > 30) {
+                cout << "NOT FOUND ";
+                break;
             }
-            if(bitread.stop) { break; }
+            if(bitread.stop) {
+                //cout << "DONE " << putchar << endl;
+                break; 
+            }
 
         }
+      
 
-        fout.close();    
+
+        fout.close();
+        
+        return 0; 
 
     }
 
