@@ -1,3 +1,9 @@
+/*
+    Implementacia Huffmanovho kódovania
+    Autor: Martin Matějka <xmatej55@vutbr.cz>
+    KKO 2022/23
+*/
+
 #include <iostream>
 #include <cstring>
 #include <stdlib.h>
@@ -113,9 +119,6 @@ class HuffStatic {
         }
         freq.push_back(frequencies[255]);
 
-        //cout << "Freq:" << endl;
-        //print_int_vector(freq);
-
         int m = 256;
         std::vector<std::pair<int, int>> h;
 
@@ -154,8 +157,6 @@ class HuffStatic {
             bitlen[i] = l;
         }
         
-        //cout << "Lens:" << endl;
-        //print_int_vector(bitlen);
         return;    
     }
 
@@ -226,12 +227,9 @@ class HuffStatic {
             int w_len = bitlen[*ptr];
             uint32_t loaded = huff_codes[*ptr];
 
-            //cout << "Loading " << (int) loaded << " of len "<< w_len<<endl;
             buffer.valid_bits += w_len;
             buffer.data.t64 = buffer.data.t64 << (uint64_t) w_len;
-            //cout<< "Before: "; print_bin(buffer.data.t64,64);
             buffer.data.t64 = buffer.data.t64 | (uint64_t) loaded;
-            //cout << "After : "; print_bin(buffer.data.t64,64);
 
             while(buffer.valid_bits >= 8){
                 uint64_t tmp=0;
@@ -242,7 +240,6 @@ class HuffStatic {
                     tmp = buffer.data.t64 & ((1U << tmp_bits) - 1U);
                     buffer.data.t64 = (buffer.data.t64 >> tmp_bits);
                 }
-                //cout << "Write:"; print_bin( (uint64_t) buffer.data.t8,8);
                 fout.write((char *) &(buffer.data.t8), 1);
 
                 buffer.valid_bits -= 8;
@@ -254,7 +251,6 @@ class HuffStatic {
                 }
                 
             }
-            //cout << (int) buffer.valid_bits<< endl;
             ptr++;
         }
 
@@ -293,10 +289,21 @@ class HuffStatic {
         return 0;
     }
 
+    int model_encode(){
+        uint8_t last_val = data[0];
+        for(unsigned int i=1; i< data.size(); i++){
+            uint8_t tmp=data[i];
+            data[i] = data[i] - last_val;
+            last_val = tmp;
+        }
+        return 0;
+    }
     
     int encode_input(){
         ERR_CHECK(ReadFileData());
-        //split_image_into_blocks(4);
+        if(arguments->model_activation){
+            model_encode();
+        }
         count_freq();
         HClen();
         huff_codes_gen();
@@ -310,8 +317,6 @@ class HuffStatic {
 
         const uint8_t *ptr = data.data();
         ERR_CHECK(decode_header( (uint8_t *)ptr));
-        //cout << "WIDTH: "<< width<<endl;
-        //cout << "HEIGTH : "<< height <<endl;
         const uint8_t *end = data.data() + data.size();
         
         huff_codes_gen();
@@ -334,14 +339,12 @@ class HuffStatic {
         uint64_t buffer=0;
         int f_len = 0;
         int exp_bytes = height * width;
+        uint8_t model_act=0;
         while(putchar != exp_bytes){
 
             f_len++;
             bool nextBit= bitread.getNextBit();
-            buffer = (buffer<<1) | nextBit;
-            
-            //if(nextBit) cout << "1"; else cout <<"0";
-            
+            buffer = (buffer<<1) | nextBit;            
 
             uint32_t finding = (uint32_t) buffer;
             
@@ -351,12 +354,18 @@ class HuffStatic {
                         });
             
             if (it != lenmaps[f_len].end()){
-                fout.write((char *) &(it->second), sizeof(it->second));
+                if(arguments->model_activation){
+                    if(putchar == 0) model_act=it->second;
+                    else model_act += it->second;
+                    fout.write((char *) &((model_act)), sizeof(model_act));
+                }
+                else{
+                    fout.write((char *) &(it->second), sizeof(it->second));
+                }
+                
                 f_len=0; 
                 buffer=0;
                 putchar++;
-                //cout<< "Matching "<< (int) finding <<":"; print_bin(finding,f_len); 
-                //cout << "With:    "; print_bin(it->first,32);
 
             }
 
@@ -365,7 +374,6 @@ class HuffStatic {
                 break;
             }
             if(bitread.stop) {
-                //cout << "DONE " << putchar << endl;
                 break; 
             }
 
@@ -377,11 +385,6 @@ class HuffStatic {
         
         return 0; 
 
-    }
-
-
-    ~HuffStatic(){
-      
     }
 
     void print_huff_codes(){

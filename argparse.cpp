@@ -1,3 +1,8 @@
+/*
+    Implementacia Parseru argumentov
+    Autor: Martin Matějka <xmatej55@vutbr.cz>
+    KKO 2022/23
+*/
 
 #include <iostream>
 #include <cstring>

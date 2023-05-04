@@ -1,3 +1,9 @@
+/*
+    Implementacia kompresie pomocou Huffmanovho kódovania
+    Autor: Martin Matějka <xmatej55@vutbr.cz>
+    KKO 2022/23
+*/
+
 #include <iostream>
 #include <sys/types.h>
 
@@ -62,8 +68,5 @@ int main(int argc, char** argv){
         }
     }
 
-    
-    //huff_static.print_huff_codes();
-   // if(huff_static.error) cout << "ENDED WITH ERR "<< huff_static.err_code<<endl; 
     return 0;
 }

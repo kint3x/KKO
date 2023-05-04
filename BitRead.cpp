@@ -1,4 +1,10 @@
 
+/*
+    Implementacia Bitstreamu pre kompresor
+    Autor: Martin Matějka <xmatej55@vutbr.cz>
+    KKO 2022/23
+*/
+
 #include <iostream>
 #include <cstring>
 #include <stdlib.h>
@@ -51,36 +57,12 @@ class BitRead {
         return res;
     }
 
-    void printSome(){
-        for(int i=0; i<30; i++){
-            if(i%6 == 0) cout << endl;
-            print_num_of_bits((*ptr),8); cout << " ";
-           
-            ptr++;
-
-        }
-        
-    }
-
     void getNextChar(){
         bit_index = 7;
         ptr++;
         if(ptr == end) stop=true;
         act_char=(*ptr);
     }
-
-    void print_num_of_bits(int num, int k){
-        for(int i=k-1; i >= 0; i--){
-            if(num & (1<<i)){
-                cout << "1";
-            }
-            else{
-                cout << "0";
-            }
-        }
-        
-    }
-
 
 
 };

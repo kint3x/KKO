@@ -1,3 +1,6 @@
+#Makefile for compressor
+# Martin Matejka xmatej55 KKO 2022/23
+
 CC=g++
 CFLAGS=-c -Wall
 LDFLAGS=

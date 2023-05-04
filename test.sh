@@ -22,7 +22,7 @@ echo "------------------------------------------"
 echo -e "${BLUE}Running tests for huff_codec${NC}"
 echo "------------------------------------------"
 
-POSSIBLEFLAGS=("" "-a")
+POSSIBLEFLAGS=("" "-a" "-m" "-a -m")
 ALLFILES=()
 
 for file in data/*.raw

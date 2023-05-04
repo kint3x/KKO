@@ -1,3 +1,9 @@
+/*
+    Implementacia Huffmanovho adaptívneho kódovania
+    Autor: Martin Matějka <xmatej55@vutbr.cz>
+    KKO 2022/23
+*/
+
 #include <iostream>
 #include <cstring>
 #include <stdlib.h>
@@ -57,9 +63,6 @@ class HuffAdaptive {
         }
         freq.push_back(frequencies[255]);
 
-        //cout << "Freq:" << endl;
-        //print_int_vector(freq);
-
         int m = 256;
         std::vector<std::pair<int, int>> h;
 
@@ -97,9 +100,7 @@ class HuffAdaptive {
             }
             bitlen[i] = l;
         }
-        
-        //cout << "Lens:" << endl;
-        //print_int_vector(bitlen);
+
         return;    
     }
 
@@ -114,7 +115,6 @@ class HuffAdaptive {
             vals.push_back(a);
         }
         sort(vals.begin(), vals.end(), compareInterval);
-        //cout<<endl;
         int delta_l;
         int last_len = vals.front().second;
         int last_num = 0;
@@ -130,6 +130,16 @@ class HuffAdaptive {
             huff_codes[it->first]=(uint32_t) curr_num;
         }
 
+    }
+
+    int model_encode(){
+        uint8_t last_val = data[0];
+        for(unsigned int i=1; i< data.size(); i++){
+            uint8_t tmp=data[i];
+            data[i] = data[i] - last_val;
+            last_val = tmp;
+        }
+        return 0;
     }
 
     int write_header(ofstream &fout){
@@ -166,12 +176,9 @@ class HuffAdaptive {
             int w_len = bitlen[*ptr];
             uint32_t loaded = huff_codes[*ptr];
 
-            //cout << "Loading " << (int) loaded << " of len "<< w_len<<endl;
             buffer.valid_bits += w_len;
             buffer.data.t64 = buffer.data.t64 << (uint64_t) w_len;
-            //cout<< "Before: "; print_bin(buffer.data.t64,64);
             buffer.data.t64 = buffer.data.t64 | (uint64_t) loaded;
-            //cout << "After : "; print_bin(buffer.data.t64,64);
 
             while(buffer.valid_bits >= 8){
                 uint64_t tmp=0;
@@ -182,7 +189,6 @@ class HuffAdaptive {
                     tmp = buffer.data.t64 & ((1U << tmp_bits) - 1U);
                     buffer.data.t64 = (buffer.data.t64 >> tmp_bits);
                 }
-                //cout << "Write:"; print_bin( (uint64_t) buffer.data.t8,8);
                 fout.write((char *) &(buffer.data.t8), 1);
                 
                 buffer.valid_bits -= 8;
@@ -201,7 +207,6 @@ class HuffAdaptive {
                 HClen();
                 huff_codes_gen();
             }
-            //cout << (int) buffer.valid_bits<< endl;
             ptr++;
         }
 
@@ -250,7 +255,9 @@ class HuffAdaptive {
     
     int encode_input(){
         ERR_CHECK(ReadFileData());
-        //split_image_into_blocks(4);
+        if(arguments->model_activation){
+            model_encode();
+        }
         HClen();
         huff_codes_gen();
         ERR_CHECK(writing_file());
@@ -281,7 +288,7 @@ class HuffAdaptive {
 
         HClen();
         huff_codes_gen();
-
+        uint8_t model_act=0;
         const uint8_t *ptr = data.data();
         ERR_CHECK(decode_header( (uint8_t *)ptr));
         const uint8_t *end = data.data() + data.size();
@@ -310,9 +317,7 @@ class HuffAdaptive {
             f_len++;
             bool nextBit= bitread.getNextBit();
             buffer = (buffer<<1) | nextBit;
-            
-            //if(nextBit) cout << "1"; else cout <<"0";
-            
+                        
 
             uint32_t finding = (uint32_t) buffer;
             
@@ -322,7 +327,14 @@ class HuffAdaptive {
                         });
             
             if (it != lenmaps[f_len].end()){
-                fout.write((char *) &(it->second), sizeof(it->second));
+                if(arguments->model_activation){
+                    if(putchar == 0) model_act=it->second;
+                    else model_act += it->second;
+                    fout.write((char *) &((model_act)), sizeof(model_act));
+                }
+                else{
+                    fout.write((char *) &(it->second), sizeof(it->second));
+                }
                 f_len=0; 
                 buffer=0;
                 putchar++;
@@ -348,7 +360,6 @@ class HuffAdaptive {
                 break;
             }
             if(bitread.stop) {
-                //cout << "DONE " << putchar << endl;
                 break; 
             }
 
@@ -361,58 +372,6 @@ class HuffAdaptive {
         return 0; 
 
     }
-
-    void print_huff_codes(){
-        for( int i=0; i<256; i++){
-            if(bitlen[i]>12) continue;
-            cout << i << ":"; print_num_of_bits(huff_codes[i],bitlen[i]) ;cout << "\n"; 
-        }
-    }
-
-    void print_bitlens(){
-        for( int i=0; i<256; i++){
-            
-            cout << i << ":" <<(int)((uint8_t) bitlen[i]); cout << "\n"; 
-            
-        }
-    }
-        
-    void print_int_vector(const std::vector<int>& v) {
-        std::cout << "[";
-        for (auto it = v.begin(); it != v.end(); ++it) {
-            std::cout << *it;
-            if (it != v.end() - 1) {
-                std::cout << ",";
-            }
-        }
-        std::cout << "]";
-    }
-    
-    void print_num_of_bits(int num, int k){
-        for(int i=k-1; i >= 0; i--){
-            if(num & (1<<i)){
-                cout << "1";
-            }
-            else{
-                cout << "0";
-            }
-        }
-        
-    }
-
-    void print_bin(uint64_t n,int k){
-        for(int i=k-1; i >= 0; i--){
-            if( n & ((uint64_t)1 << i) ){
-                cout << "1";
-            }
-            else cout << "0";
-
-            if(i%4 == 0) cout << " ";
-        }
-        cout << endl;
-    }
-
-
 
 };
 #endif
