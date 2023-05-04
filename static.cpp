@@ -83,16 +83,6 @@ class HuffStatic {
         }
     }
 
-    void write_map(){
-        for (auto const& x : frequencies)
-        {
-            std::cout << int (x.first)  // string (key)
-                    << ':' 
-                    << x.second // string's value 
-                    << std::endl;
-        }
-    }
-
     
     void split_image_into_blocks(int block_size) {
         int num_blocks_x = width / block_size;
@@ -113,12 +103,7 @@ class HuffStatic {
         }
     }
 
-    // comparator function to make min heap
-    struct greaters{
-        bool operator()(const std::pair<int, int> a ,const std::pair<int, int> b) const{
-            return a.first>b.first;
-        }
-    };
+
     void HClen() {
         std::vector<int> freq;
         std::vector<int> hr(256*2,0);
@@ -203,18 +188,32 @@ class HuffStatic {
 
     }
 
+    int write_header(ofstream &fout){
+        
+        uint32_t width_height = (uint32_t) width;
+        width_height = (width_height<<16) |  ((uint32_t) height);
+
+        uint8_t compress_info = 0;
+        compress_info = (compress_info | arguments->model_activation)  << 1;
+        compress_info = (compress_info | arguments->adaptive_scanning);
+
+        fout.write((char *) &width_height, sizeof(width_height));
+        fout.write((char *) &compress_info, sizeof(compress_info));
+
+        
+        for(int i=0; i<256; i++){
+            uint8_t b = (uint8_t ) bitlen[i];
+            fout.write((char *) &b, sizeof(b));
+        }
+        return 0;
+    }
 
     int writing_file(){
         ofstream fout;
         std::string filename = arguments->output_file;
         fout.open(filename, ios::binary | ios::out);
         
-        fout.write((char *) &width, sizeof(width));
-        fout.write((char *) &height, sizeof(height));
-        for(int i=0; i<256; i++){
-            uint8_t b = (uint8_t ) bitlen[i];
-            fout.write((char *) &b, sizeof(b));
-        }
+        write_header(fout);
         
         const uint8_t *ptr = data.data();
         const uint8_t *end = data.data() + data.size();
@@ -274,10 +273,17 @@ class HuffStatic {
     
     int decode_header(uint8_t *ptr){
        
-        width = *((uint32_t *) ptr); ptr+=sizeof(uint32_t);
-        height = *((uint32_t *) ptr); ptr+=sizeof(uint32_t);
+        uint32_t width_height = *((uint32_t *) ptr); ptr+=sizeof(uint32_t);
+        
+        width = (int) (width_height >> 16);
+        height = (int) (width_height & 0xFFFF);
 
         if(width == 0 ||  height == 0) return ERR_BAD_SIZE;
+
+        uint8_t info_bits = *((uint8_t *) ptr); ptr+=sizeof(uint8_t);
+        
+        if((info_bits) & 1 ) arguments->adaptive_scanning = true;
+        if((info_bits>>1) & 1 ) arguments->model_activation = true;
         
         for(int i=0; i<256;i++){
             bitlen[i] = *((uint8_t *) ptr);

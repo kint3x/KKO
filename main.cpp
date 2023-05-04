@@ -4,7 +4,25 @@
 // CLASSES
 #include "argparse.cpp"
 #include "static.cpp"
+#include "adaptive.cpp"
 
+int read_compressMode(ArgParser *args){
+    std::string filename = args->input_file;
+    fstream file(filename, ios::in | ios::out | ios::binary);
+
+    file.seekg(4);
+    char x;
+    file.read((&x), 1);
+    file.close();
+    if(x & 1){
+        return COMPRESS_ADAPTIVE;
+    }
+    
+    return COMPRESS_STATIC;
+
+
+
+}
 
 int main(int argc, char** argv){
     ArgParser args = ArgParser(argc,argv);
@@ -22,12 +40,29 @@ int main(int argc, char** argv){
         cout << "You need to specitfy -w width" <<endl;
         return 0;
     }
-
-
+    
     HuffStatic huff_static = HuffStatic(&args);
+    HuffAdaptive huff_adaptive = HuffAdaptive(&args);
 
-    if(args.compress_mode) huff_static.encode_input();
-    if(args.decompress_mode) huff_static.decode_input();
+    if(args.decompress_mode){
+        
+        if( read_compressMode(&args) == COMPRESS_ADAPTIVE){
+            huff_adaptive.decode_input();
+        }
+        else{
+            huff_static.decode_input();
+        }
+        
+    }else{
+        if(args.adaptive_scanning){
+            huff_adaptive.encode_input();
+        }
+        else{
+            huff_static.encode_input();
+        }
+    }
+
+    
     //huff_static.print_huff_codes();
    // if(huff_static.error) cout << "ENDED WITH ERR "<< huff_static.err_code<<endl; 
     return 0;

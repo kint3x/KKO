@@ -9,7 +9,11 @@
 #define ERR_BAD_SIZE 4
 #define ERR_WR_ERROR 5
 
-#define HEADER_SIZE_BYTES 264
+#define HEADER_SIZE_BYTES 261
+#define HEADER_ADAPTIVE_SIZE_BYTES 5
+
+#define COMPRESS_ADAPTIVE 1
+#define COMPRESS_STATIC 0
 
 #define ERR_CHECK(x) do { \
   int retval = (x); \
@@ -18,8 +22,6 @@
     return 0; \
   } \
 } while (0)
-
-#define HEADER_BYTE_SIZE 264
 
    // Compares two intervals according to starting times.
     bool compareInterval(const std::pair<int,int> i1, const std::pair<int,int> i2)
