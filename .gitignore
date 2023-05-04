@@ -1,3 +1,5 @@
 *.txt
 *.o
 huff_codec
+*.comp
+*.decomp
